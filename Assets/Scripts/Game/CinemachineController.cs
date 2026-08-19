@@ -27,11 +27,11 @@ public class CinemachineControllerLookAhead : CinemachineExtension
 
     [Header("Look Ahead")]
     [Tooltip("How far the camera pushes ahead in the facing direction.")]
-    public float lookAheadDistance = 3f;
+    public float lookAheadDistance;
     [Tooltip("Smoothing time while facing direction stays the same.")]
-    public float lookAheadSmoothTime = 0.35f;
+    public float lookAheadSmoothTime;
     [Tooltip("Smoothing time the instant facing direction changes (keep small for a snappy reaction).")]
-    public float directionChangeSmoothTime = 3f;
+    public float directionChangeSmoothTime;
 
     private float currentLookAheadX;
     private float lookAheadVelocityX;
@@ -74,14 +74,7 @@ public class CinemachineControllerLookAhead : CinemachineExtension
         }
         else
         {
-            currentLookAheadX = Mathf.SmoothDamp(
-                currentLookAheadX,
-                targetLookAheadX,
-                ref lookAheadVelocityX,
-                smoothTime,
-                Mathf.Infinity,
-                deltaTime
-            );
+            currentLookAheadX = Mathf.SmoothDamp(currentLookAheadX,targetLookAheadX,ref lookAheadVelocityX,smoothTime,Mathf.Infinity,deltaTime);
         }
 
         lastFacingDirection = facingDirection;

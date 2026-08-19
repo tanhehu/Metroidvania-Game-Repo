@@ -28,10 +28,6 @@ public class ParalaxBackgroundController : MonoBehaviour
             layer.layerTransform.position += new Vector3(x, 0, 0) * Time.deltaTime;
         }
 
-        //if(camDelta.x != 0)
-        //{
-        //    Debug.Log(camDelta);
-        //}
         lastCamPos = transform.position;
     }
 }

@@ -9,13 +9,16 @@ using UnityEngine.UIElements;
 public class PlayerController : MoveController
 {
     [Header("Movement")]
+    [SerializeField] private float runMultiplier;
     private bool isIdle = true;
     private bool isWalking = false;
+    private bool isRunning = false;
     private float xInput;
     private bool isFacingRight = true;
 
-    [Header("Jumping")]
+    [Header("Jump")]
     [SerializeField] private float jumpCutMultiplier;
+    [SerializeField] private float jumpMoveSpeedBuffer;
     public float jumpGravity;
     public float fallGravity;
     private bool isGrounded;
@@ -25,6 +28,12 @@ public class PlayerController : MoveController
     [SerializeField] private float landingRecoveryTime;
     public LayerMask groundCheckMask;
     public float groundCheckRadius;
+
+    [Header("Dash")]
+    [SerializeField] private float dashForce;
+    [SerializeField] private float dashCooldown;
+    private bool isDashing = false;
+    private bool canDash = true;
 
     [Header("References")]
     [SerializeField] private Animator animator;
@@ -38,38 +47,61 @@ public class PlayerController : MoveController
 
     public void Update()
     {
+        Idle();
         Move(new Vector3(xInput, 0, 0));
-        Jump();
         Flip();
+        Dash();
+        Jump();
+        GroundCheck();
         ControlAnimation();
     }
 
     private void LateUpdate()
     {
-        GroundCheck();
+
+    }
+
+    public void Idle()
+    {
+        isIdle = isGrounded && !isWalking && !isLanding;
     }
 
     public override void Move(Vector3 direction)
     {
         xInput = Input.GetAxisRaw("Horizontal");
         isWalking = Mathf.Abs(xInput) > 0.1f && isGrounded && !isLanding;
-        if(rb.linearVelocityY > 0.1f)
+
+        if (isRunning)
         {
-            direction *= 1.5f;                                                      // Increase movement speed while jumping
+            direction *= runMultiplier;
         }
-        base.Move(direction);
+
+        if (rb.linearVelocityY > 0.1f)
+        {
+            if(!isRunning)
+            {
+                direction *= jumpMoveSpeedBuffer;
+            }                                               // Increase movement speed while jumping
+        }
+
+        if(isRunning && Input.GetKeyUp(KeyCode.LeftShift))
+        {
+            isRunning = false;
+        }
 
         if (isLanding)
         {
             xInput = 0;
         }
+
+        base.Move(direction);
     }
 
     public void ControlAnimation()
     {
-        isIdle = isGrounded && !isWalking && !isLanding;
-
         animator.SetBool("Walking", isWalking);
+        animator.SetBool("Running", isRunning);
+        animator.SetBool("Dashing", isDashing);
         animator.SetBool("Idle", isIdle);
         animator.SetFloat("yVelocity", rb.linearVelocityY);
         animator.SetBool("Grounded", isGrounded);
@@ -83,6 +115,8 @@ public class PlayerController : MoveController
             rb.gravityScale = jumpGravity;
             rb.AddForce(Vector3.up * jumpForce, ForceMode2D.Impulse);
             isGrounded = false;
+
+            isRunning = false;  
         }
         else
         {
@@ -95,6 +129,34 @@ public class PlayerController : MoveController
                 rb.gravityScale = fallGravity;
             }
         }
+    }
+
+    public void Dash()
+    {
+        isDashing = false;
+        int direction = isFacingRight ? 1 : -1;
+        if (Input.GetKeyDown(KeyCode.LeftShift))
+        {
+            if (canDash)
+            {
+                rb.AddForce(new Vector3(direction, 0, 0) * dashForce, ForceMode2D.Impulse);
+                StartCoroutine(OnDashing());
+                isDashing = true;
+            }
+            isRunning = true;
+        }
+
+        if (isRunning && Input.GetKeyUp(KeyCode.LeftShift))
+        {
+            isRunning = false;
+        }
+    }
+
+    private IEnumerator OnDashing()
+    {
+        canDash = false;
+        yield return new WaitForSeconds(dashCooldown);
+        canDash = true;
     }
 
     public void Flip()
@@ -115,18 +177,26 @@ public class PlayerController : MoveController
         float velocityY = rb.linearVelocityY;
         if (velocityY < -0.1f)
         {
-            isGrounded = false;                                                       
+            isGrounded = false;        
+            isRunning = false;
+
             if (Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundCheckMask))
             {
                 if (velocityY < landingVelocity)
                 {
                     StartCoroutine(OnLanding());
                 }
+
                 isGrounded = true;
             }
+
+            if(velocityY < landingVelocity)
+            {
+                rb.linearVelocityY = landingVelocity;                                    // Max falling velocity
+            }
         }
-                                                                                       // Check for when the player lands on the ground when the velocity is low 
-        if(velocityY < 0.1f && velocityY >=0 && !isGrounded)                                            //(e.g., Jumping up a platform with equal height to jump force)
+                                                                                       // Check for when the player lands on the ground when the velocity is around 0 
+        if(velocityY < 0.1f && velocityY >= 0 && !isGrounded)                          //(e.g., Jumping up a platform with equal height to jump force)
         {
             isGrounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundCheckMask);
         }
